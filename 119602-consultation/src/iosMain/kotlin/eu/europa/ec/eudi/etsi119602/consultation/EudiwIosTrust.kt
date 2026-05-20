@@ -16,10 +16,25 @@
 package eu.europa.ec.eudi.etsi119602.consultation
 
 import eu.europa.ec.eudi.etsi119602.Uri
+import eu.europa.ec.eudi.etsi1196x2.consultation.CertificationChainValidation
 import eu.europa.ec.eudi.etsi1196x2.consultation.ComposeChainTrust
 import eu.europa.ec.eudi.etsi1196x2.consultation.SupportedLists
 import eu.europa.ec.eudi.etsi1196x2.consultation.VerificationContext
 import platform.Foundation.NSData
+
+/**
+ * Swift-friendly outcome of a chain validation. Flattens the generic
+ * [CertificationChainValidation] sealed type so Swift consumers don't need generic casts.
+ *
+ * @param isTrusted whether the chain is trusted for the requested context
+ * @param matchedAnchor on success, the DER of the trust anchor that validated the chain
+ * @param failureReason on failure, a human-readable reason
+ */
+public data class IosValidationResult(
+    val isTrusted: Boolean,
+    val matchedAnchor: NSData?,
+    val failureReason: String?,
+)
 
 /**
  * One-call assembly of the iOS LoTE-based trust validator, intended for Swift consumers.
@@ -83,4 +98,40 @@ public object EudiwIosTrust {
         context: VerificationContext,
     ): List<NSData> =
         validator.getTrustAnchors.invoke(context)?.list ?: emptyList()
+
+    /**
+     * Validates a DER-encoded certificate [chain] for [context] using [validator].
+     *
+     * The chain is the leaf-first list of DER certificates from a received credential/attestation
+     * (e.g. the `x5c` of a PID or mDL). Returns an [IosValidationResult]; a `null` underlying
+     * result (context not supported by the validator) is reported as not-trusted.
+     *
+     * `@Throws` for the same reason as [trustAnchors]: validation fetches/parses the LoTE and could
+     * otherwise crash the process on failure instead of surfacing a Swift error.
+     */
+    @Throws(Throwable::class)
+    public suspend fun validate(
+        validator: ComposeChainTrust<List<NSData>, VerificationContext, NSData>,
+        chain: List<NSData>,
+        context: VerificationContext,
+    ): IosValidationResult =
+        when (val outcome = validator.invoke(chain, context)) {
+            null -> IosValidationResult(
+                isTrusted = false,
+                matchedAnchor = null,
+                failureReason = "No validator configured for this context",
+            )
+
+            is CertificationChainValidation.Trusted -> IosValidationResult(
+                isTrusted = true,
+                matchedAnchor = outcome.trustAnchor,
+                failureReason = null,
+            )
+
+            is CertificationChainValidation.NotTrusted -> IosValidationResult(
+                isTrusted = false,
+                matchedAnchor = null,
+                failureReason = outcome.cause.message ?: "Chain is not trusted",
+            )
+        }
 }
