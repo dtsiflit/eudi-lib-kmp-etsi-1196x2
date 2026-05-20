@@ -5,6 +5,7 @@ import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 import java.net.URI
 
@@ -88,8 +89,20 @@ kotlin {
             else -> error("Unknown iOS target: $targetName")
         }
 
+    // Single umbrella framework for iOS consumers (SwiftPM). It re-exports the consultation
+    // and data-model APIs so Swift sees one module ("EudiEtsi1196x2") with the full surface,
+    // and statically links the PKIXBridge cinterop so the framework is self-contained.
+    val umbrella = XCFramework("EudiEtsi1196x2")
+
     listOf(iosArm64(), iosX64(), iosSimulatorArm64()).forEach { target ->
         val frameworkSearchPath = pkixBridgeXcframework.resolve(pkixBridgeSlice(target.name)).absolutePath
+        target.binaries.framework {
+            baseName = "EudiEtsi1196x2"
+            isStatic = false
+            export(projects.etsi1196x2Consultation)
+            export(projects.etsi119602DataModel)
+            umbrella.add(this)
+        }
         target.binaries.all {
             linkerOpts("-framework", "PKIXBridge", "-F$frameworkSearchPath")
             if (swiftLibBase != null) {
