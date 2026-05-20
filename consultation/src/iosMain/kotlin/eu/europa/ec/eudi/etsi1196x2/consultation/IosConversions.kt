@@ -26,7 +26,7 @@ import platform.posix.memcpy
  * Copies the bytes of this [NSData] into a Kotlin [ByteArray].
  */
 @OptIn(ExperimentalForeignApi::class)
-internal fun NSData.toByteArray(): ByteArray {
+public fun NSData.toByteArray(): ByteArray {
     val size = length.toInt()
     if (size == 0) return ByteArray(0)
     return ByteArray(size).apply {
@@ -40,7 +40,7 @@ internal fun NSData.toByteArray(): ByteArray {
  * Wraps this [ByteArray] in an [NSData] without sharing the backing buffer.
  */
 @OptIn(ExperimentalForeignApi::class)
-internal fun ByteArray.toNSData(): NSData {
+public fun ByteArray.toNSData(): NSData {
     if (isEmpty()) return NSData()
     return usePinned { pinned ->
         NSData.create(bytes = pinned.addressOf(0), length = size.toULong())

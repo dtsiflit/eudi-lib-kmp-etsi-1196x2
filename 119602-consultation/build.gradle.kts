@@ -1,9 +1,11 @@
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
+import org.gradle.internal.os.OperatingSystem
 import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest
 import java.net.URI
 
 plugins {
@@ -37,6 +39,7 @@ kotlin {
                 "kotlin.ExperimentalStdlibApi",
                 "kotlin.time.ExperimentalTime",
                 "kotlin.contracts.ExperimentalContracts",
+                "kotlinx.cinterop.ExperimentalForeignApi",
             )
     }
 
@@ -57,10 +60,43 @@ kotlin {
             }
     }
 
-    // iOS targets
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
+    // iOS targets. This module links final iOS binaries (e.g. test executables) that transitively
+    // use the consultation module's PKIXBridge cinterop, so it must repeat the framework + Swift
+    // compatibility-shim linker options (cinterop linker options do not propagate transitively).
+    val pkixBridgeXcframework = rootProject.file("PKIXBridge/build/PKIXBridge.xcframework")
+
+    fun pkixBridgeSlice(targetName: String): String =
+        when (targetName) {
+            "iosArm64" -> "ios-arm64"
+            "iosX64", "iosSimulatorArm64" -> "ios-arm64_x86_64-simulator"
+            else -> error("Unknown iOS target: $targetName")
+        }
+
+    val swiftLibBase: String? =
+        if (OperatingSystem.current().isMacOsX) {
+            providers.exec { commandLine("xcode-select", "-p") }
+                .standardOutput.asText.get().trim() +
+                "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift"
+        } else {
+            null
+        }
+
+    fun swiftLibPlatform(targetName: String): String =
+        when (targetName) {
+            "iosArm64" -> "iphoneos"
+            "iosX64", "iosSimulatorArm64" -> "iphonesimulator"
+            else -> error("Unknown iOS target: $targetName")
+        }
+
+    listOf(iosArm64(), iosX64(), iosSimulatorArm64()).forEach { target ->
+        val frameworkSearchPath = pkixBridgeXcframework.resolve(pkixBridgeSlice(target.name)).absolutePath
+        target.binaries.all {
+            linkerOpts("-framework", "PKIXBridge", "-F$frameworkSearchPath")
+            if (swiftLibBase != null) {
+                linkerOpts("-L$swiftLibBase/${swiftLibPlatform(target.name)}")
+            }
+        }
+    }
 
     // Set up targets
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
@@ -120,6 +156,15 @@ kotlin {
             }
         }
     }
+}
+
+// SecTrust evaluation (reachable via the iOS PKIX validator) needs the trust daemon (trustd),
+// which is only available on a fully-booted simulator. Run simulator tests against an
+// already-booted device rather than Kotlin's default ephemeral standalone simulator.
+// CI must boot a simulator first (`xcrun simctl boot <device>`).
+tasks.withType<KotlinNativeSimulatorTest>().configureEach {
+    standalone.set(false)
+    device.set("booted")
 }
 
 // Android configuration
