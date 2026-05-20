@@ -156,6 +156,15 @@ kotlin {
         }
 
         @Suppress("UNUSED")
+        val iosMain by getting {
+            dependencies {
+                // Darwin (NSURLSession) HTTP engine, linked into the umbrella framework so
+                // HttpClient(Darwin) works at runtime on iOS.
+                implementation(libs.ktor.client.darwin)
+            }
+        }
+
+        @Suppress("UNUSED")
         val jvmAndAndroidTest by getting {
             dependencies {
                 implementation(libs.ktor.client.java)
