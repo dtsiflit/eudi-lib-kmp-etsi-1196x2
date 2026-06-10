@@ -31,3 +31,5 @@ local.properties
 Packages/
 .swiftpm/
 .DS_Store
+
+.junie

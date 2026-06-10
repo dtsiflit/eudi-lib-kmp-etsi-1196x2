@@ -191,7 +191,7 @@ tasks.withType<KotlinNativeSimulatorTest>().configureEach {
 
 // Android configuration
 android {
-    namespace = properties["namespace"].toString()
+    namespace = "eu.europa.ec.eudi.etsi119602.consultation"
     group = properties["group"].toString()
     compileSdk = properties["android.targetSdk"].toString().toInt()
 

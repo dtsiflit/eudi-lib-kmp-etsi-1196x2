@@ -15,14 +15,15 @@
  */
 package eu.europa.ec.eudi.etsi119602.consultation
 
-import eu.europa.ec.eudi.etsi119602.Uri
 import eu.europa.ec.eudi.etsi119602.consultation.eu.EUMDLProvidersListSpec
 import eu.europa.ec.eudi.etsi119602.consultation.eu.ServiceDigitalIdentityCertificateType
+import eu.europa.ec.eudi.etsi119602.datamodel.Uri
 import eu.europa.ec.eudi.etsi1196x2.consultation.SensitiveApi
 import eu.europa.ec.eudi.etsi1196x2.consultation.SupportedLists
 import eu.europa.ec.eudi.etsi1196x2.consultation.VerificationContext
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import java.nio.file.Files
 import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -79,7 +80,7 @@ class DIGITTest {
     fun testDownload() = runTest {
         createHttpClient().use { httpClient ->
             val fileStore = LoTEFileStore(
-                cacheDirectory = Path(System.getProperty("java.io.tmpdir")!!, "digit-lote"),
+                cacheDirectory = Path(Files.createTempDirectory("digit-lote").toString()),
             )
             val loadLoTE = LoadSingleLoTEWithFileCache(
                 fileStore = fileStore,

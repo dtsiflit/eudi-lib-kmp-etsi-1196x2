@@ -16,10 +16,10 @@
 package eu.europa.ec.eudi.etsi119602.consultation.jp
 
 import com.nimbusds.jwt.SignedJWT
-import eu.europa.ec.eudi.etsi119602.Uri
 import eu.europa.ec.eudi.etsi119602.consultation.*
 import eu.europa.ec.eudi.etsi119602.consultation.eu.ServiceDigitalIdentityCertificateType
 import eu.europa.ec.eudi.etsi119602.consultation.jp.JPPoC.LC_VCT
+import eu.europa.ec.eudi.etsi119602.datamodel.Uri
 import eu.europa.ec.eudi.etsi1196x2.consultation.*
 import eu.europa.ec.eudi.sdjwt.vc.*
 import io.ktor.client.*
@@ -28,6 +28,7 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
+import java.nio.file.Files
 import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import kotlin.test.Ignore
@@ -107,7 +108,7 @@ class JPLoTEDownloaderTest {
         createHttpClient().use { httpClient ->
 
             val fileStore = LoTEFileStore(
-                cacheDirectory = Path(System.getProperty("java.io.tmpdir")!!, "jp-lote"),
+                cacheDirectory = Path(Files.createTempDirectory("jp-lote").toString()),
             )
             val verifier = run {
                 val loadLoTE = LoadSingleLoTEWithFileCache(
