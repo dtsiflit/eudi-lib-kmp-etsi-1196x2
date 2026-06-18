@@ -1,4 +1,4 @@
-name: XCFramework SwiftPM Release
+name: XCFramework SwiftPM Prepare Release
 
 on:
   workflow_dispatch:
@@ -8,11 +8,12 @@ on:
         required: true
 
 jobs:
-  release:
+  prepare:
     runs-on: macos-14
 
     permissions:
       contents: write
+      pull-requests: write
 
     env:
       INPUT_VERSION: ${{ github.event.inputs.version }}
@@ -28,7 +29,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -56,6 +56,29 @@ jobs:
           CHECKSUM=$(swift package compute-checksum "${OUTPUT_DIR}/${ZIP_NAME}")
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
           echo "Checksum: $CHECKSUM"
+
+      - name: Create and push tag
+        run: |
+          git fetch --tags
+
+          if git rev-parse "${INPUT_VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${INPUT_VERSION} already exists."
+          else
+            git tag "${INPUT_VERSION}"
+            git push origin "${INPUT_VERSION}"
+          fi
+
+      - name: Create GitHub release and upload XCFramework
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.INPUT_VERSION }}
+          name: ${{ env.INPUT_VERSION }}
+          files: ${{ env.OUTPUT_DIR }}/${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Package.swift
         run: |
@@ -86,45 +109,22 @@ jobs:
 
           cat Package.swift
 
-      - name: Commit Package.swift to main
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add Package.swift
-
-          if git diff --cached --quiet; then
-            echo "No Package.swift changes to commit."
-          else
-            git commit -m "Release ${INPUT_VERSION}"
-            git push origin main
-          fi
-
-      - name: Create and push tag
-        run: |
-          git fetch --tags
-
-          if git rev-parse "${INPUT_VERSION}" >/dev/null 2>&1; then
-            echo "Tag ${INPUT_VERSION} already exists."
-          else
-            git tag "${INPUT_VERSION}"
-            git push origin "${INPUT_VERSION}"
-          fi
-
-      - name: Create GitHub release and upload XCFramework
-        uses: softprops/action-gh-release@v2
+      - name: Open release PR
+        uses: peter-evans/create-pull-request@v6
         with:
-          tag_name: ${{ env.INPUT_VERSION }}
-          name: ${{ env.INPUT_VERSION }}
-          files: ${{ env.OUTPUT_DIR }}/${{ env.ZIP_NAME }}
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/${{ env.INPUT_VERSION }}
+          title: "Release ${{ env.INPUT_VERSION }}"
+          commit-message: "Prepare SwiftPM release ${{ env.INPUT_VERSION }}"
+          body: |
+            Prepares the Swift Package binary release for `${{ env.INPUT_VERSION }}`.
 
-      - name: Upload XCFramework zip artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.ZIP_NAME }}
-          path: ${{ env.OUTPUT_DIR }}/${{ env.ZIP_NAME }}
+            This PR updates:
+            - `Package.swift`
+
+            The XCFramework zip has already been uploaded to:
+
+            `https://github.com/${{ github.repository }}/releases/download/${{ env.INPUT_VERSION }}/${{ env.ZIP_NAME }}`
+
+            After this PR is merged, run the `Move Release Tag` workflow for `${{ env.INPUT_VERSION }}`.
+          add-paths: |
+            Package.swift
