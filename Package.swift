@@ -15,8 +15,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "EudiEtsi1196x2",
-            url: "https://github.com/dtsiflit/eudi-lib-kmp-etsi-1196x2/releases/download/0.0.3/EudiEtsi1196x2.xcframework.zip",
-            checksum: "d0a9a62716c7befd978e2373ef1707f49663c94dd413d56027535d8a52139fa9"
+            url: "https://github.com/dtsiflit/eudi-lib-kmp-etsi-1196x2/releases/download/0.0.4/EudiEtsi1196x2.xcframework.zip",
+            checksum: "89f0f873a466d0b1c85af49adbaeb13f8ade7fb0d8416536951904a485af8dd5"
         )
     ]
 )
